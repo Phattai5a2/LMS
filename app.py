@@ -117,6 +117,3 @@ if uploaded_files and st.button("🚀 Xử lý Nhiều File"):
     st.dataframe(df_courses_all)
     st.download_button("⬇️ Tải file Lớp Học (Tất Cả)", df_courses_all.to_csv(index=False).encode('utf-8-sig'),
                        file_name="moodle_course_upload_all.csv", mime="text/csv")
-```
-
-Hãy xử lý course\_name trên code này
