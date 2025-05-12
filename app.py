@@ -27,22 +27,11 @@ st.markdown(
 def extract_course_info(df_full):
     course_info_line = df_full.iloc[4, 4] if not pd.isna(df_full.iloc[4, 4]) else ""
     class_line = df_full.iloc[5, 1] if not pd.isna(df_full.iloc[5, 1]) else ""
-
-    # Lấy mã học phần từ [Mã]
     course_code_match = re.search(r'\[(.*?)\]', course_info_line)
     course_code = course_code_match.group(1) if course_code_match else ''
-
-    # Lấy tên lớp
     class_match = re.search(r'Lớp:\s*(.*)', class_line)
     class_name = class_match.group(1).strip() if class_match else ''
-
-    # Loại bỏ từ khóa "Học phần:" và khoảng trắng
-    course_fullname_base = re.sub(r'^[Hh]ọc [Pp]hần:\s*', '', course_info_line).strip()
-
-    # Tạo mã lớp học phần: Mã + Tên lớp
-    course_identifier = f"{course_code}_{class_name}"
-
-    return course_identifier, course_fullname_base
+    return f"{course_code}_{class_name}", course_info_line.split(":")[-1].strip()
 
 def filter_valid_students(df):
     df['MSSV'] = df['MSSV'].astype(str)
@@ -76,18 +65,18 @@ with tab1:
     username_gv = st.text_input("👨‍🏫 Username Giảng Viên:")
     fullname_gv = st.text_input("👨‍🏫 Họ và Tên Giảng Viên:")
     email_gv = st.text_input("📧 Email Giảng Viên:")
-    category_id = st.text_input("📂 Category ID:", value="15")
+    category_id = st.text_input("📂 Category ID:", value="14")
 
     if uploaded_file and st.button("🚀 Xử lý Một File"):
         students, course_code, course_name = process_excel(uploaded_file)
         gv_ho_lot, gv_ten = split_name(fullname_gv)
-        all_users = [{'username': username_gv, 'password': 'Kcntt@123456',
+        all_users = [{'username': username_gv, 'password': 'Kcntt@2022m',
                       'firstname': gv_ho_lot, 'lastname': gv_ten,
                       'email': email_gv, 'course1': course_code}] + students
         df_users = pd.DataFrame(all_users)
         df_course = pd.DataFrame([{'shortname': course_code,
-                                   'fullname': f"{course_code}_{course_name}_GV: {fullname_gv}",
-                                   'categoryID': category_id}])
+                                   'fullname': f"{course_name}_GV: {fullname_gv}",
+                                   'category': category_id}])
         st.dataframe(df_users)
         st.download_button("⬇️ Tải file Người Dùng", df_users.to_csv(index=False).encode('utf-8-sig'),
                            file_name="moodle_user_upload.csv", mime="text/csv")
@@ -114,7 +103,7 @@ with tab2:
                                      'email': email_gv_multi, 'course1': course_code})
             all_user_records.extend(students)
             all_course_records.append({'shortname': course_code,
-                                       'fullname': f"{course_code}_{course_name}_GV: {fullname_gv_multi}",
+                                       'fullname': f"{course_name}_GV: {fullname_gv_multi}",
                                        'category': category_id_multi})
 
         df_users_all = pd.DataFrame(all_user_records)
@@ -124,5 +113,8 @@ with tab2:
         st.download_button("⬇️ Tải file Người Dùng (Tất Cả)", df_users_all.to_csv(index=False).encode('utf-8-sig'),
                            file_name="moodle_user_upload_all.csv", mime="text/csv")
         st.dataframe(df_courses_all)
+        st.download_button("⬇️ Tải file Lớp Học (Tất Cả)", df_courses_all.to_csv(index=False).encode('utf-8-sig'),
+                           file_name="moodle_course_upload_all.csv", mime="text/csv")
+
         st.download_button("⬇️ Tải file Lớp Học (Tất Cả)", df_courses_all.to_csv(index=False).encode('utf-8-sig'),
                            file_name="moodle_course_upload_all.csv", mime="text/csv")
