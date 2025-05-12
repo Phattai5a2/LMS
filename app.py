@@ -27,11 +27,19 @@ st.markdown(
 def extract_course_info(df_full):
     course_info_line = df_full.iloc[4, 4] if not pd.isna(df_full.iloc[4, 4]) else ""
     class_line = df_full.iloc[5, 1] if not pd.isna(df_full.iloc[5, 1]) else ""
+
+    # Lấy mã học phần từ [Mã]
     course_code_match = re.search(r'\[(.*?)\]', course_info_line)
     course_code = course_code_match.group(1) if course_code_match else ''
+
+    # Lấy tên lớp
     class_match = re.search(r'Lớp:\s*(.*)', class_line)
     class_name = class_match.group(1).strip() if class_match else ''
-    return f"{course_code}_{class_name}", course_info_line.split(":")[-1].strip()
+
+    # Loại bỏ từ khóa "Học phần:" và khoảng trắng
+    course_fullname_base = re.sub(r'^[Hh]ọc [Pp]hần:\s*', '', course_info_line).strip()
+
+    return f"{course_code}_{class_name}", course_fullname_base
 
 def filter_valid_students(df):
     df['MSSV'] = df['MSSV'].astype(str)
