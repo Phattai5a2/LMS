@@ -65,7 +65,7 @@ with tab1:
     username_gv = st.text_input("👨‍🏫 Username Giảng Viên:")
     fullname_gv = st.text_input("👨‍🏫 Họ và Tên Giảng Viên:")
     email_gv = st.text_input("📧 Email Giảng Viên:")
-    category_id = st.text_input("📂 Category ID:", value="14")
+    category_id = st.text_input("📂 Category ID:", value="15")
 
     if uploaded_file and st.button("🚀 Xử lý Một File"):
         students, course_code, course_name = process_excel(uploaded_file)
