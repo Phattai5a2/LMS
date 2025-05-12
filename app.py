@@ -76,7 +76,7 @@ with tab1:
         df_users = pd.DataFrame(all_users)
 
         parts = course_name.split("] - ")
-        course_code = parts[0]  # "012307779204"
+        course_code = parts[0].strip()
         course_name = parts[1]  # "Chuyên đề chuyên sâu Kỹ thuật CNTT 2 (22DTH1D)"
 
         # Ghép lại thành chuỗi mong muốn
