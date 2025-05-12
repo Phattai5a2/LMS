@@ -77,10 +77,11 @@ with tab1:
 
         parts = course_name.split("] - ")
         course_code = parts[0].strip()
+        clean_line = course_code.lstrip("[")
         course_name = parts[1]  # "Chuyên đề chuyên sâu Kỹ thuật CNTT 2 (22DTH1D)"
 
         # Ghép lại thành chuỗi mong muốn
-        course_full = f"{course_code}_{course_name}"
+        course_full = f"{clean_line}_{course_name}"
         
         df_course = pd.DataFrame([{'shortname': course_code,
                                    'fullname': f"{course_full}_GV: {fullname_gv}",
