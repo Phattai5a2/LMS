@@ -39,7 +39,10 @@ def extract_course_info(df_full):
     # Loại bỏ từ khóa "Học phần:" và khoảng trắng
     course_fullname_base = re.sub(r'^[Hh]ọc [Pp]hần:\s*', '', course_info_line).strip()
 
-    return f"{course_code}_{class_name}", course_fullname_base
+    # Tạo mã lớp học phần: Mã + Tên lớp
+    course_identifier = f"{course_code}_{class_name}"
+
+    return course_identifier, course_fullname_base
 
 def filter_valid_students(df):
     df['MSSV'] = df['MSSV'].astype(str)
@@ -83,7 +86,7 @@ with tab1:
                       'email': email_gv, 'course1': course_code}] + students
         df_users = pd.DataFrame(all_users)
         df_course = pd.DataFrame([{'shortname': course_code,
-                                   'fullname': f"{course_name}_GV: {fullname_gv}",
+                                   'fullname': f"{course_code}_{course_name}_GV: {fullname_gv}",
                                    'categoryID': category_id}])
         st.dataframe(df_users)
         st.download_button("⬇️ Tải file Người Dùng", df_users.to_csv(index=False).encode('utf-8-sig'),
@@ -111,7 +114,7 @@ with tab2:
                                      'email': email_gv_multi, 'course1': course_code})
             all_user_records.extend(students)
             all_course_records.append({'shortname': course_code,
-                                       'fullname': f"{course_name}_GV: {fullname_gv_multi}",
+                                       'fullname': f"{course_code}_{course_name}_GV: {fullname_gv_multi}",
                                        'category': category_id_multi})
 
         df_users_all = pd.DataFrame(all_user_records)
