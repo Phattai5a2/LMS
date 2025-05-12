@@ -1,72 +1,16 @@
-# -*- coding: utf-8 -*-
-
-"""
-Created on Sun May 11 23:26:42 2025
-
-@author: PC
-"""
-
-import streamlit as st
-import pandas as pd
-import re
-
-st.set\_page\_config(page\_title="Moodle User & Course CSV Generator", layout="centered")
-
+-- coding: utf-8 --
+""" Created on Sun May 11 23:26:42 2025
+@author: PC """
+import streamlit as st import pandas as pd import re
+st.set_page_config(page_title="Moodle User & Course CSV Generator", layout="centered")
 st.title("📥 Quản lý lớp học trên Moodle")
-
-st.markdown(
-""" <style>
-\[data-testid="stToolbar"] {
-visibility: hidden;
-} </style>
-""",
-unsafe\_allow\_html=True
-)
-
-def extract\_course\_info(df\_full):
-course\_info\_line = df\_full.iloc\[4, 4] if not pd.isna(df\_full.iloc\[4, 4]) else ""
-class\_line = df\_full.iloc\[5, 1] if not pd.isna(df\_full.iloc\[5, 1]) else ""
-course\_code\_match = re.search(r'$(.*?)$', course\_info\_line)
-course\_code = course\_code\_match.group(1) if course\_code\_match else ''
-class\_match = re.search(r'Lớp:\s\*(.\*)', class\_line)
-class\_name = class\_match.group(1).strip() if class\_match else ''
-return f"{course\_code}\_{class\_name}", course\_info\_line.split(":")\[-1].strip()
-
-def filter\_valid\_students(df):
-df\['MSSV'] = df\['MSSV'].astype(str)
-return df\[df\['MSSV'].str.fullmatch(r'\d{8,}')].copy()
-
-def split\_name(full\_name):
-parts = full\_name.strip().split()
-return (' '.join(parts\[:-1]), parts\[-1]) if len(parts) > 1 else ('', parts\[0])
-
-def process\_excel(uploaded\_file):
-df\_full = pd.read\_excel(uploaded\_file, sheet\_name=0, header=None, engine='xlrd')
-course\_identifier, course\_fullname\_base = extract\_course\_info(df\_full)
-df\_raw = pd.read\_excel(uploaded\_file, header=None, skiprows=13, engine='xlrd')
-cols = \['STT', 'MSSV', 'Ho', 'Ten', 'GioiTinh', 'NgaySinh', 'Lop'] + \[f'col{i}' for i in range(7, df\_raw\.shape\[1])]
-df\_raw\.columns = cols\[:df\_raw\.shape\[1]]
-df\_valid = filter\_valid\_students(df\_raw\[\['MSSV', 'Ho', 'Ten']].copy())
-df\_valid\['Email'] = df\_valid\['MSSV'].astype(str) + '@ntt.edu.vn'
-students = \[]
-for \_, row in df\_valid.iterrows():
-ho\_lot, ten = split\_name(row\['Ho'] + " " + row\['Ten'])
-students.append({'username': row\['MSSV'], 'password': row\['MSSV'],
-'firstname': ho\_lot, 'lastname': ten,
-'email': row\['Email'], 'course1': course\_identifier})
-return students, course\_identifier, course\_fullname\_base
-
-tab1, tab2 = st.tabs(\["📄 Một File", "📂 Nhiều File"])
-
-with tab1:
-st.header("📄 Xử lý Một File Excel")
-uploaded\_file = st.file\_uploader("Chọn file Excel", type=\["xls", "xlsx"])
-username\_gv = st.text\_input("👨‍🏫 Username Giảng Viên:")
-fullname\_gv = st.text\_input("👨‍🏫 Họ và Tên Giảng Viên:")
-email\_gv = st.text\_input("📧 Email Giảng Viên:")
-category\_id = st.text\_input("📂 Category ID:", value="15")
-
-```
+st.markdown( """ [data-testid="stToolbar"] { visibility: hidden; } """, unsafe_allow_html=True )
+def extract_course_info(df_full): course_info_line = df_full.iloc[4, 4] if not pd.isna(df_full.iloc[4, 4]) else "" class_line = df_full.iloc[5, 1] if not pd.isna(df_full.iloc[5, 1]) else "" course_code_match = re.search(r'(.*?)', course_info_line) course_code = course_code_match.group(1) if course_code_match else '' class_match = re.search(r'Lớp:\s*(.*)', class_line) class_name = class_match.group(1).strip() if class_match else '' return f"{course_code}_{class_name}", course_info_line.split(":")[-1].strip()
+def filter_valid_students(df): df['MSSV'] = df['MSSV'].astype(str) return df[df['MSSV'].str.fullmatch(r'\d{8,}')].copy()
+def split_name(full_name): parts = full_name.strip().split() return (' '.join(parts[:-1]), parts[-1]) if len(parts) > 1 else ('', parts[0])
+def process_excel(uploaded_file): df_full = pd.read_excel(uploaded_file, sheet_name=0, header=None, engine='xlrd') course_identifier, course_fullname_base = extract_course_info(df_full) df_raw = pd.read_excel(uploaded_file, header=None, skiprows=13, engine='xlrd') cols = ['STT', 'MSSV', 'Ho', 'Ten', 'GioiTinh', 'NgaySinh', 'Lop'] + [f'col{i}' for i in range(7, df_raw.shape[1])] df_raw.columns = cols[:df_raw.shape[1]] df_valid = filter_valid_students(df_raw[['MSSV', 'Ho', 'Ten']].copy()) df_valid['Email'] = df_valid['MSSV'].astype(str) + '@ntt.edu.vn' students = [] for _, row in df_valid.iterrows(): ho_lot, ten = split_name(row['Ho'] + " " + row['Ten']) students.append({'username': row['MSSV'], 'password': row['MSSV'], 'firstname': ho_lot, 'lastname': ten, 'email': row['Email'], 'course1': course_identifier}) return students, course_identifier, course_fullname_base
+tab1, tab2 = st.tabs(["📄 Một File", "📂 Nhiều File"])
+with tab1: st.header("📄 Xử lý Một File Excel") uploaded_file = st.file_uploader("Chọn file Excel", type=["xls", "xlsx"]) username_gv = st.text_input("👨‍🏫 Username Giảng Viên:") fullname_gv = st.text_input("👨‍🏫 Họ và Tên Giảng Viên:") email_gv = st.text_input("📧 Email Giảng Viên:") category_id = st.text_input("📂 Category ID:", value="15")
 if uploaded_file and st.button("🚀 Xử lý Một File"):
     students, course_code, course_name = process_excel(uploaded_file)
     gv_ho_lot, gv_ten = split_name(fullname_gv)
@@ -83,17 +27,7 @@ if uploaded_file and st.button("🚀 Xử lý Một File"):
     st.dataframe(df_course)
     st.download_button("⬇️ Tải file Lớp Học", df_course.to_csv(index=False).encode('utf-8-sig'),
                        file_name="moodle_course_upload.csv", mime="text/csv")
-```
-
-with tab2:
-st.header("📂 Xử lý Nhiều File Excel")
-uploaded\_files = st.file\_uploader("Chọn nhiều file Excel", type=\["xls", "xlsx"], accept\_multiple\_files=True)
-username\_gv\_multi = st.text\_input("👨‍🏫 Username Giảng Viên cho Tất Cả:")
-fullname\_gv\_multi = st.text\_input("👨‍🏫 Họ và Tên Giảng Viên cho Tất Cả:")
-email\_gv\_multi = st.text\_input("📧 Email Giảng Viên cho Tất Cả:")
-category\_id\_multi = st.text\_input("📂 Category ID cho Tất Cả:", value="14")
-
-```
+with tab2: st.header("📂 Xử lý Nhiều File Excel") uploaded_files = st.file_uploader("Chọn nhiều file Excel", type=["xls", "xlsx"], accept_multiple_files=True) username_gv_multi = st.text_input("👨‍🏫 Username Giảng Viên cho Tất Cả:") fullname_gv_multi = st.text_input("👨‍🏫 Họ và Tên Giảng Viên cho Tất Cả:") email_gv_multi = st.text_input("📧 Email Giảng Viên cho Tất Cả:") category_id_multi = st.text_input("📂 Category ID cho Tất Cả:", value="14")
 if uploaded_files and st.button("🚀 Xử lý Nhiều File"):
     all_user_records, all_course_records = [], []
     gv_ho_lot_multi, gv_ten_multi = split_name(fullname_gv_multi)
