@@ -112,7 +112,7 @@ with tab2:
                                      'email': email_gv_multi, 'course1': course_code})
             all_user_records.extend(students)
             all_course_records.append({'shortname': course_code,
-                                       'fullname': f"{course_full}_GV: {fullname_gv_multi}",
+                                       'fullname': f"{course_name}_GV: {fullname_gv_multi}",
                                        'category': category_id_multi})
 
         df_users_all = pd.DataFrame(all_user_records)
