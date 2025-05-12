@@ -76,7 +76,7 @@ with tab1:
         df_users = pd.DataFrame(all_users)
         df_course = pd.DataFrame([{'shortname': course_code,
                                    'fullname': f"{course_name}_GV: {fullname_gv}",
-                                   'category': category_id}])
+                                   'categoryID': category_id}])
         st.dataframe(df_users)
         st.download_button("⬇️ Tải file Người Dùng", df_users.to_csv(index=False).encode('utf-8-sig'),
                            file_name="moodle_user_upload.csv", mime="text/csv")
