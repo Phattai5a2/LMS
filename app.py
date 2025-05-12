@@ -69,7 +69,7 @@ with tab1:
     if uploaded_file and st.button("🚀 Xử lý Một File"):
         students, course_code, course_name = process_excel(uploaded_file)
         gv_ho_lot, gv_ten = split_name(fullname_gv)
-        all_users = [{'username': username_gv, 'password': 'Kcntt@123456',
+        all_users = [{'username': username_gv, 'password': 'Kcntt@2xxx',
                       'firstname': gv_ho_lot, 'lastname': gv_ten,
                       'email': f"{username_gv}@ntt.edu.vn", 'course1': course_code}] + students
         df_users = pd.DataFrame(all_users)
@@ -96,7 +96,7 @@ with tab2:
 
         for file in uploaded_files:
             students, course_code, course_name = process_excel(file)
-            all_user_records.append({'username': username_gv_multi, 'password': 'Kcntt@123456',
+            all_user_records.append({'username': username_gv_multi, 'password': 'Kcntt@2xxx',
                                      'firstname': gv_ho_lot_multi, 'lastname': gv_ten_multi,
                                      'email': f"{username_gv_multi}@ntt.edu.vn", 'course1': course_code})
             all_user_records.extend(students)
