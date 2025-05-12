@@ -11,7 +11,7 @@ import re
 
 st.set_page_config(page_title="Moodle User & Course CSV Generator", layout="centered")
 
-st.title("📥 Công Cụ Xuất File Người Dùng và Lớp Học Moodle")
+st.title("📥 Quản lý lớp học trên Moodle")
 
 st.markdown(
     """
