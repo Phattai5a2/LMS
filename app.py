@@ -74,8 +74,16 @@ with tab1:
                       'firstname': gv_ho_lot, 'lastname': gv_ten,
                       'email': email_gv, 'course1': course_code}] + students
         df_users = pd.DataFrame(all_users)
+
+        parts = course_name.split("] - ")
+        course_code = parts[0]  # "012307779204"
+        course_name = parts[1]  # "Chuyên đề chuyên sâu Kỹ thuật CNTT 2 (22DTH1D)"
+
+        # Ghép lại thành chuỗi mong muốn
+        course_full = f"{course_code}_{course_name}"
+        
         df_course = pd.DataFrame([{'shortname': course_code,
-                                   'fullname': f"{course_name}_GV: {fullname_gv}",
+                                   'fullname': f"{course_full}_GV: {fullname_gv}",
                                    'category': category_id}])
         st.dataframe(df_users)
         st.download_button("⬇️ Tải file Người Dùng", df_users.to_csv(index=False).encode('utf-8-sig'),
