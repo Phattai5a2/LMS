@@ -13,6 +13,17 @@ st.set_page_config(page_title="Moodle User & Course CSV Generator", layout="cent
 
 st.title("📥 Công Cụ Xuất File Người Dùng và Lớp Học Moodle")
 
+st.markdown(
+    """
+    <style>
+    [data-testid="stToolbar"] {
+            visibility: hidden;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
 def extract_course_info(df_full):
     course_info_line = df_full.iloc[4, 4] if not pd.isna(df_full.iloc[4, 4]) else ""
     class_line = df_full.iloc[5, 1] if not pd.isna(df_full.iloc[5, 1]) else ""
