@@ -70,21 +70,12 @@ with tab1:
     if uploaded_file and st.button("🚀 Xử lý Một File"):
         students, course_code, course_name = process_excel(uploaded_file)
         gv_ho_lot, gv_ten = split_name(fullname_gv)
-        all_users = [{'username': username_gv, 'password': 'Kcntt@123456',
+        all_users = [{'username': username_gv, 'password': 'Kcntt@2022',
                       'firstname': gv_ho_lot, 'lastname': gv_ten,
                       'email': email_gv, 'course1': course_code}] + students
         df_users = pd.DataFrame(all_users)
-
-        parts = course_name.split("] - ")
-        course_code = parts[0].strip()
-        clean_line = course_code.lstrip("[")
-        course_name = parts[1]  # "Chuyên đề chuyên sâu Kỹ thuật CNTT 2 (22DTH1D)"
-
-        # Ghép lại thành chuỗi mong muốn
-        course_full = f"{clean_line}_{course_name}"
-        
         df_course = pd.DataFrame([{'shortname': course_code,
-                                   'fullname': f"{course_full}_GV: {fullname_gv}",
+                                   'fullname': f"{course_name}_GV: {fullname_gv}",
                                    'category': category_id}])
         st.dataframe(df_users)
         st.download_button("⬇️ Tải file Người Dùng", df_users.to_csv(index=False).encode('utf-8-sig'),
@@ -122,8 +113,5 @@ with tab2:
         st.download_button("⬇️ Tải file Người Dùng (Tất Cả)", df_users_all.to_csv(index=False).encode('utf-8-sig'),
                            file_name="moodle_user_upload_all.csv", mime="text/csv")
         st.dataframe(df_courses_all)
-        st.download_button("⬇️ Tải file Lớp Học (Tất Cả)", df_courses_all.to_csv(index=False).encode('utf-8-sig'),
-                           file_name="moodle_course_upload_all.csv", mime="text/csv")
-
         st.download_button("⬇️ Tải file Lớp Học (Tất Cả)", df_courses_all.to_csv(index=False).encode('utf-8-sig'),
                            file_name="moodle_course_upload_all.csv", mime="text/csv")
