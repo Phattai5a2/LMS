@@ -1,8 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 Created on Sun May 11 23:26:42 2025
-
-@author: PC
+Updated with password = Kcntt@ddmmyyyy
 """
 
 import streamlit as st
@@ -24,6 +23,17 @@ st.markdown(
     unsafe_allow_html=True
 )
 
+def split_name(full_name):
+    parts = full_name.strip().split()
+    return (' '.join(parts[:-1]), parts[-1]) if len(parts) > 1 else ('', parts[0])
+
+def read_excel_auto(file, **kwargs):
+    ext = file.name.split('.')[-1]
+    if ext == 'xls':
+        return pd.read_excel(file, engine='xlrd', **kwargs)
+    else:
+        return pd.read_excel(file, engine='openpyxl', **kwargs)
+
 def extract_course_info(df_full):
     course_info_line = df_full.iloc[4, 4] if not pd.isna(df_full.iloc[4, 4]) else ""
     class_line = df_full.iloc[5, 1] if not pd.isna(df_full.iloc[5, 1]) else ""
@@ -33,29 +43,45 @@ def extract_course_info(df_full):
     class_name = class_match.group(1).strip() if class_match else ''
     return f"{course_code}_{class_name}", course_info_line.split(":")[-1].strip()
 
-def filter_valid_students(df):
-    df['MSSV'] = df['MSSV'].astype(str)
-    return df[df['MSSV'].str.fullmatch(r'\d{8,}')].copy()
-
-def split_name(full_name):
-    parts = full_name.strip().split()
-    return (' '.join(parts[:-1]), parts[-1]) if len(parts) > 1 else ('', parts[0])
-
 def process_excel(uploaded_file):
-    df_full = pd.read_excel(uploaded_file, sheet_name=0, header=None, engine='xlrd')
-    course_identifier, course_fullname_base = extract_course_info(df_full)
-    df_raw = pd.read_excel(uploaded_file, header=None, skiprows=13, engine='xlrd')
+    try:
+        df_full = read_excel_auto(uploaded_file, sheet_name=0, header=None)
+        df_raw = read_excel_auto(uploaded_file, header=None, skiprows=13)
+    except Exception as e:
+        st.error(f"Lỗi đọc file Excel: {e}")
+        return [], "", ""
+
+    course_identifier, course_name = extract_course_info(df_full)
+
     cols = ['STT', 'MSSV', 'Ho', 'Ten', 'GioiTinh', 'NgaySinh', 'Lop'] + [f'col{i}' for i in range(7, df_raw.shape[1])]
     df_raw.columns = cols[:df_raw.shape[1]]
-    df_valid = filter_valid_students(df_raw[['MSSV', 'Ho', 'Ten']].copy())
-    df_valid['Email'] = df_valid['MSSV'].astype(str) + '@ntt.edu.vn'
+    df_valid = df_raw[df_raw['MSSV'].notna() & df_raw['Ho'].notna() & df_raw['Ten'].notna()]
+
     students = []
     for _, row in df_valid.iterrows():
-        ho_lot, ten = split_name(row['Ho'] + " " + row['Ten'])
-        students.append({'username': row['MSSV'], 'password': row['MSSV'],
-                         'firstname': ho_lot, 'lastname': ten,
-                         'email': row['Email'], 'course1': course_identifier})
-    return students, course_identifier, course_fullname_base
+        mssv = str(row['MSSV'])
+        email = mssv + "@ntt.edu.vn"
+        ho_lot, ten = split_name(f"{row['Ho']} {row['Ten']}")
+
+        # Xử lý ngày sinh
+        try:
+            dob = pd.to_datetime(row.get('NgaySinh'), errors='coerce')
+            dob_str = dob.strftime('%d%m%Y') if not pd.isna(dob) else '01011990'
+        except:
+            dob_str = '01011990'
+
+        password = f"Kcntt@{dob_str}"
+
+        students.append({
+            'username': mssv,
+            'password': password,
+            'firstname': ho_lot,
+            'lastname': ten,
+            'email': email,
+            'course1': course_identifier
+        })
+
+    return students, course_identifier, course_name
 
 tab1, tab2 = st.tabs(["📄 Một File", "📂 Nhiều File"])
 
