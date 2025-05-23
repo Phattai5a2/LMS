@@ -1,8 +1,4 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Sun May 11 23:26:42 2025
-Updated with password = Kcntt@ddmmyyyy
-"""
+
 
 import streamlit as st
 import pandas as pd
