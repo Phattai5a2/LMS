@@ -105,7 +105,7 @@ with tab2:
     uploaded_files = st.file_uploader("Chọn nhiều file Excel", type=["xls", "xlsx"], accept_multiple_files=True)
     username_gv_multi = st.text_input("👨‍🏫 Username Giảng Viên cho Tất Cả:")
     fullname_gv_multi = st.text_input("👨‍🏫 Họ và Tên Giảng Viên cho Tất Cả:")
-    category_id_multi = st.text_input("📂 Category ID cho Tất Cả:", value="14")
+    category_id_multi = st.text_input("📂 Category ID cho Tất Cả:", value="15")
 
     if uploaded_files and st.button("🚀 Xử lý Nhiều File"):
         all_user_records, all_course_records = [], []
