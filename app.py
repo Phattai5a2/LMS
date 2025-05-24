@@ -25,7 +25,7 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# Hàm gọi API Moodle với timeout
+# Các hàm hỗ trợ (giữ nguyên từ mã trước)
 def moodle_api_call(function_name, params, moodle_url, token):
     try:
         url = f"{moodle_url}/webservice/rest/server.php"
@@ -34,7 +34,7 @@ def moodle_api_call(function_name, params, moodle_url, token):
             'wsfunction': function_name,
             'moodlewsrestformat': 'json'
         })
-        response = requests.get(url, params=params, timeout=10)  # Timeout 10 giây
+        response = requests.get(url, params=params, timeout=10)
         if response.status_code == 200:
             return response.json()
         else:
@@ -44,13 +44,11 @@ def moodle_api_call(function_name, params, moodle_url, token):
         st.error(f"Lỗi kết nối API {function_name}: {e}")
         return None
 
-# Kiểm tra token hợp lệ
 def validate_token(moodle_url, token):
     params = {'criteria[0][key]': 'username', 'criteria[0][value]': 'admin'}
     result = moodle_api_call('core_user_get_users', params, moodle_url, token)
     return result is not None
 
-# Tạo hoặc cập nhật khóa học
 def create_or_update_course(course_code, course_name, category_id, moodle_url, token):
     params = {'courses[0][shortname]': course_code}
     existing_course = moodle_api_call('core_course_get_courses_by_field', params, moodle_url, token)
@@ -80,7 +78,6 @@ def create_or_update_course(course_code, course_name, category_id, moodle_url, t
             return course_id
     return None
 
-# Tạo người dùng và trả về user_id
 def create_user(user, moodle_url, token):
     params = {'criteria[0][key]': 'username', 'criteria[0][value]': user['username']}
     existing_user = moodle_api_call('core_user_get_users', params, moodle_url, token)
@@ -103,7 +100,6 @@ def create_user(user, moodle_url, token):
             st.error(f"Lỗi khi tạo người dùng: {user['username']}")
             return None
 
-# Ghi danh hàng loạt (chia nhỏ để tránh treo)
 def enroll_users(users, course_id, role_id, moodle_url, token, batch_size=50):
     success_count = 0
     for i in range(0, len(users), batch_size):
@@ -122,14 +118,30 @@ def enroll_users(users, course_id, role_id, moodle_url, token, batch_size=50):
                 st.success(f"Đã ghi danh {len(params) // 3} người dùng trong batch.")
             else:
                 st.error("Lỗi khi ghi danh batch người dùng.")
-        time.sleep(0.5)  # Nghỉ 0.5 giây giữa các batch để tránh quá tải
+        time.sleep(0.5)
     return success_count
 
-# Hàm xử lý Excel (giữ nguyên, chỉ thêm kiểm tra kích thước)
+def extract_course_info(df_full):
+    course_info_line = df_full.iloc[4, 4] if not pd.isna(df_full.iloc[4, 4]) else ""
+    class_line = df_full.iloc[5, 1] if not pd.isna(df_full.iloc[5, 1]) else ""
+    course_code_match = re.search(r'\[(.*?)\]', course_info_line)
+    course_code = course_code_match.group(1) if course_code_match else ''
+    class_match = re.search(r'Lớp:\s*(.*)', class_line)
+    class_name = class_match.group(1).strip() if class_match else ''
+    return f"{course_code}_{class_name}", course_info_line.split(":")[-1].strip()
+
+def filter_valid_students(df):
+    df['MSSV'] = df['MSSV'].astype(str)
+    return df[df['MSSV'].str.fullmatch(r'\d{8,}')].copy()
+
+def split_name(full_name):
+    parts = full_name.strip().split()
+    return (' '.join(parts[:-1]), parts[-1]) if len(parts) > 1 else ('', parts[0])
+
 def process_excel(uploaded_file):
     try:
         df_full = pd.read_excel(uploaded_file, sheet_name=0, header=None, engine='openpyxl')
-        if df_full.size > 1_000_000:  # Giới hạn kích thước file
+        if df_full.size > 1_000_000:
             st.error("File Excel quá lớn, vui lòng giảm số lượng dữ liệu.")
             return [], "", ""
         course_identifier, course_fullname_base = extract_course_info(df_full)
@@ -173,7 +185,6 @@ with tab1:
     moodle_url = st.text_input("🌐 URL Moodle (VD: https://your-moodle-site.com):")
     moodle_token = st.text_input("🔑 API Token:", type="password")
     
-    # Kiểm tra token
     if moodle_url and moodle_token and st.button("🔍 Kiểm tra Token"):
         if validate_token(moodle_url, moodle_token):
             st.success("Token hợp lệ!")
@@ -187,23 +198,23 @@ with tab1:
     role_gv = st.selectbox("👤 Vai trò Giảng Viên:", [("Giảng viên", 3), ("Sinh viên", 5)], index=0)
     role_sv = st.selectbox("👤 Vai trò Sinh Viên:", [("Sinh viên", 5), ("Giảng viên", 3)], index=0)
 
-    if uploaded_file and username_gv and fullname_gv and moodle_url and moodle_token:
-        if st.button("🚀 Xử lý và Cập nhật qua API"):
+    if st.button("🚀 Xử lý và Cập nhật qua API"):
+        if not (uploaded_file and username_gv and fullname_gv and moodle_url and moodle_token):
+            st.error("Vui lòng cung cấp đầy đủ file, thông tin giảng viên, URL Moodle và API Token.")
+        else:
             with st.spinner("Đang xử lý..."):
                 try:
                     students, course_code, course_name = process_excel(uploaded_file)
                     if not students:
                         st.error("Không tìm thấy sinh viên hợp lệ trong file.")
-                        return
+                        st.stop()  # Dừng thực thi thay vì return
                     
-                    # Tạo hoặc cập nhật khóa học
                     course_id = create_or_update_course(course_code, f"{course_name}_GV: {fullname_gv}", 
                                                       category_id, moodle_url, moodle_token)
                     if not course_id:
                         st.error("Không thể tạo hoặc cập nhật khóa học.")
-                        return
+                        st.stop()
                     
-                    # Thêm giảng viên
                     gv_ho_lot, gv_ten = split_name(fullname_gv)
                     teacher = [{
                         'username': username_gv,
@@ -214,11 +225,8 @@ with tab1:
                         'course1': course_code
                     }]
                     enroll_users(teacher, course_id, role_gv[1], moodle_url, moodle_token)
-
-                    # Thêm sinh viên
                     enroll_users(students, course_id, role_sv[1], moodle_url, moodle_token)
 
-                    # Tạo file CSV
                     all_users = teacher + students
                     df_users = pd.DataFrame(all_users)
                     df_course = pd.DataFrame([{
@@ -226,7 +234,7 @@ with tab1:
                         'fullname': f"{course_name}_GV: {fullname_gv}",
                         'category': category_id
                     }])
-                    st.dataframe(df_users.head(10))  # Chỉ hiển thị 10 dòng để tránh treo
+                    st.dataframe(df_users.head(10))
                     st.download_button(
                         "⬇️ Tải file Người Dùng",
                         df_users.to_csv(index=False).encode('utf-8-sig'),
@@ -242,15 +250,12 @@ with tab1:
                     )
                 except Exception as e:
                     st.error(f"Lỗi xử lý: {e}")
-    elif st.button("🚀 Xử lý và Cập nhật qua API"):
-        st.error("Vui lòng cung cấp đầy đủ file, thông tin giảng viên, URL Moodle và API Token.")
 
 with tab2:
     st.header("📂 Xử lý Nhiều File Excel")
     moodle_url_multi = st.text_input("🌐 URL Moodle (Nhiều File):")
     moodle_token_multi = st.text_input("🔑 API Token (Nhiều File):", type="password")
     
-    # Kiểm tra token
     if moodle_url_multi and moodle_token_multi and st.button("🔍 Kiểm tra Token (Nhiều File)"):
         if validate_token(moodle_url_multi, moodle_token_multi):
             st.success("Token hợp lệ!")
@@ -264,8 +269,10 @@ with tab2:
     role_gv_multi = st.selectbox("👤 Vai trò Giảng Viên (Nhiều File):", [("Giảng viên", 3), ("Sinh viên", 5)], index=0)
     role_sv_multi = st.selectbox("👤 Vai trò Sinh Viên (Nhiều File):", [("Sinh viên", 5), ("Giảng viên", 3)], index=0)
 
-    if uploaded_files and username_gv_multi and fullname_gv_multi and moodle_url_multi and moodle_token_multi:
-        if st.button("🚀 Xử lý và Cập nhật qua API (Nhiều File)"):
+    if st.button("🚀 Xử lý và Cập nhật qua API (Nhiều File)"):
+        if not (uploaded_files and username_gv_multi and fullname_gv_multi and moodle_url_multi and moodle_token_multi):
+            st.error("Vui lòng cung cấp đầy đủ file, thông tin giảng viên, URL Moodle và API Token.")
+        else:
             with st.spinner("Đang xử lý các file..."):
                 all_user_records, all_course_records = [], []
                 gv_ho_lot_multi, gv_ten_multi = split_name(fullname_gv_multi)
@@ -279,14 +286,12 @@ with tab2:
                             st.warning(f"File {file.name} không có sinh viên hợp lệ.")
                             continue
                         
-                        # Tạo hoặc cập nhật khóa học
                         course_id = create_or_update_course(course_code, f"{course_name}_GV: {fullname_gv_multi}", 
                                                            category_id_multi, moodle_url_multi, moodle_token_multi)
                         if not course_id:
                             st.error(f"Không thể tạo/cập nhật khóa học cho file {file.name}.")
                             continue
                         
-                        # Thêm giảng viên
                         teacher = [{
                             'username': username_gv_multi,
                             'password': 'Kcntt@2xxx',
@@ -296,11 +301,8 @@ with tab2:
                             'course1': course_code
                         }]
                         enroll_users(teacher, course_id, role_gv_multi[1], moodle_url_multi, moodle_token_multi)
-
-                        # Thêm sinh viên
                         enroll_users(students, course_id, role_sv_multi[1], moodle_url_multi, moodle_token_multi)
 
-                        # Lưu dữ liệu cho CSV
                         all_user_records.extend(teacher + students)
                         all_course_records.append({
                             'shortname': course_code,
@@ -308,7 +310,6 @@ with tab2:
                             'category': category_id_multi
                         })
 
-                        # Cập nhật thanh tiến trình
                         progress_bar.progress((i + 1) / total_files)
                     except Exception as e:
                         st.error(f"Lỗi khi xử lý file {file.name}: {e}")
@@ -316,7 +317,7 @@ with tab2:
                 if all_user_records:
                     df_users_all = pd.DataFrame(all_user_records)
                     df_courses_all = pd.DataFrame(all_course_records)
-                    st.dataframe(df_users_all.head(10))  # Chỉ hiển thị 10 dòng
+                    st.dataframe(df_users_all.head(10))
                     st.download_button(
                         "⬇️ Tải file Người Dùng (Tất Cả)",
                         df_users_all.to_csv(index=False).encode('utf-8-sig'),
@@ -332,5 +333,3 @@ with tab2:
                     )
                 else:
                     st.error("Không có dữ liệu hợp lệ để tạo CSV.")
-    elif st.button("🚀 Xử lý và Cập nhật qua API (Nhiều File)"):
-        st.error("Vui lòng cung cấp đầy đủ file, thông tin giảng viên, URL Moodle và API Token.")
