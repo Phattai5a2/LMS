@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-# -*- coding: utf-8 -*-
 """
 Created on Sun May 11 23:26:42 2025
 @author: PC
@@ -11,7 +10,6 @@ import re
 import requests
 import time
 import logging
-import os
 
 logging.basicConfig(filename='app.log', level=logging.DEBUG)
 
@@ -29,22 +27,30 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# Hàm kiểm tra kết nối server
+# Hàm kiểm tra kết nối server đã sửa (dùng HTTP thay vì ping)
 def check_server_connectivity(moodle_url):
     try:
-        domain = moodle_url.replace('https://', '').replace('http://', '').split('/')[0]
-        response = os.system(f"ping -c 4 {domain}")
-        if response != 0:
-            st.error("Không thể kết nối tới server Moodle. Kiểm tra mạng, firewall, hoặc URL.")
-            logging.error("Không thể ping server: %s", domain)
+        if not moodle_url.startswith(('http://', 'https://')):
+            st.error("URL Moodle phải bắt đầu bằng http:// hoặc https://.")
+            logging.error("URL không hợp lệ: %s", moodle_url)
             return False
-        return True
-    except Exception as e:
-        st.error(f"Lỗi kiểm tra kết nối: {str(e)}")
+        
+        # Thử truy cập trang login của Moodle
+        test_url = f"{moodle_url.rstrip('/')}/login/index.php"
+        response = requests.get(test_url, timeout=10)
+        if response.status_code in [200, 303]:  # 200: OK, 303: Redirect (thường với Moodle)
+            logging.debug("Kết nối server Moodle thành công: %s", test_url)
+            return True
+        else:
+            st.error(f"Không thể kết nối tới server Moodle (HTTP {response.status_code}). Kiểm tra URL hoặc server.")
+            logging.error("Không thể kết nối tới server: HTTP %s", response.status_code)
+            return False
+    except requests.exceptions.RequestException as e:
+        st.error(f"Lỗi kiểm tra kết nối tới server Moodle: {str(e)}. Kiểm tra mạng, firewall, hoặc URL.")
         logging.error("Lỗi kiểm tra kết nối: %s", str(e))
         return False
 
-# Hàm gọi API Moodle đã sửa
+# Hàm gọi API Moodle
 def moodle_api_call(function_name, params, moodle_url, token):
     try:
         if not moodle_url or not token:
@@ -92,13 +98,17 @@ def moodle_api_call(function_name, params, moodle_url, token):
 
 # Kiểm tra token hợp lệ đã sửa
 def validate_token(moodle_url, token):
-    # Thử với username linh hoạt (admin hoặc username mặc định từ giao diện)
-    test_username = st.session_state.get('test_username', 'admin')  # Có thể nhập từ giao diện sau
+    test_username = st.session_state.get('test_username', 'admin')
+    if not test_username:
+        st.error("Username kiểm tra token rỗng. Vui lòng nhập username hợp lệ.")
+        logging.error("Username kiểm tra rỗng.")
+        return False
+    
     params = {'criteria[0][key]': 'username', 'criteria[0][value]': test_username}
     result = moodle_api_call('core_user_get_users', params, moodle_url, token)
     if result is None:
-        st.error("Không thể xác thực token. Kiểm tra token, URL, quyền ('moodle/user:viewdetails'), "
-                 "và tài khoản '{test_username}' tồn tại. Nếu thất bại, thử username khác.")
+        st.error(f"Không thể xác thực token. Kiểm tra token, URL, quyền ('moodle/user:viewdetails'), "
+                 f"và tài khoản '{test_username}' tồn tại. Nếu thất bại, thử username khác.")
         logging.error("Không thể xác thực token cho username: %s", test_username)
         return False
     elif not result.get('users'):
@@ -108,33 +118,6 @@ def validate_token(moodle_url, token):
     st.success("Token hợp lệ!")
     return True
 
-# Các hàm khác giữ nguyên (create_user, create_or_update_course, enroll_users, process_excel)
-def create_user(user, moodle_url, token):
-    if not user.get('username'):
-        st.error("Tên người dùng rỗng. Kiểm tra dữ liệu từ file Excel.")
-        return None
-    
-    params = {'criteria[0][key]': 'username', 'criteria[0][value]': user['username']}
-    existing_user = moodle_api_call('core_user_get_users', params, moodle_url, token)
-    
-    if existing_user and 'users' in existing_user and existing_user['users']:
-        return existing_user['users'][0]['id']
-    else:
-        params = {
-            'users[0][username]': user['username'],
-            'users[0][password]': user['password'],
-            'users[0][firstname]': user['firstname'],
-            'users[0][lastname]': user['lastname'],
-            'users[0][email]': user['email']
-        }
-        result = moodle_api_call('core_user_create_users', params, moodle_url, token)
-        if result and 'users' in result:
-            st.success(f"Đã tạo người dùng: {user['username']}")
-            return result['users'][0]['id']
-        else:
-            st.error(f"Lỗi khi tạo người dùng {user['username']}. Kiểm tra quyền của token.")
-            return None
-
 # Giao diện Streamlit đã sửa
 tab1, tab2 = st.tabs(["📄 Một File", "📂 Nhiều File"])
 
@@ -143,7 +126,7 @@ with tab1:
     moodle_url = st.text_input("🌐 URL Moodle (VD: https://your-moodle-site.com):")
     moodle_token = st.text_input("🔑 API Token:", type="password")
     test_username = st.text_input("🔑 Username kiểm tra token (mặc định: admin):", value="admin")
-    st.session_state['test_username'] = test_username  # Lưu username để dùng trong validate_token
+    st.session_state['test_username'] = test_username  # Lưu username
     
     if moodle_url and moodle_token and st.button("🔍 Kiểm tra Token"):
         if validate_token(moodle_url, moodle_token):
