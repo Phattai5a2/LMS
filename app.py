@@ -10,6 +10,7 @@ import re
 import requests
 import json
 import time
+import magic  # Thư viện để kiểm tra định dạng file
 
 st.set_page_config(page_title="Moodle User & Course CSV Generator", layout="centered")
 st.title("📥 Quản lý lớp học trên Moodle")
@@ -25,132 +26,63 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# Các hàm hỗ trợ (giữ nguyên từ mã trước)
-def moodle_api_call(function_name, params, moodle_url, token):
+# Hàm kiểm tra định dạng file
+def check_file_format(file):
     try:
-        url = f"{moodle_url}/webservice/rest/server.php"
-        params.update({
-            'wstoken': token,
-            'wsfunction': function_name,
-            'moodlewsrestformat': 'json'
-        })
-        response = requests.get(url, params=params, timeout=10)
-        if response.status_code == 200:
-            return response.json()
-        else:
-            st.error(f"Lỗi khi gọi API {function_name}: {response.status_code} - {response.text}")
-            return None
-    except requests.exceptions.RequestException as e:
-        st.error(f"Lỗi kết nối API {function_name}: {e}")
-        return None
+        file.seek(0)  # Đặt con trỏ về đầu file
+        mime = magic.Magic(mime=True)
+        file_type = mime.from_buffer(file.read(1024))
+        file.seek(0)  # Đặt lại con trỏ
+        return file_type in [
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',  # .xlsx
+            'application/vnd.ms-excel',  # .xls
+        ]
+    except Exception:
+        return False
 
-def validate_token(moodle_url, token):
-    params = {'criteria[0][key]': 'username', 'criteria[0][value]': 'admin'}
-    result = moodle_api_call('core_user_get_users', params, moodle_url, token)
-    return result is not None
-
-def create_or_update_course(course_code, course_name, category_id, moodle_url, token):
-    params = {'courses[0][shortname]': course_code}
-    existing_course = moodle_api_call('core_course_get_courses_by_field', params, moodle_url, token)
-    
-    if existing_course and 'courses' in existing_course and existing_course['courses']:
-        course_id = existing_course['courses'][0]['id']
-        params = {
-            'courses[0][id]': course_id,
-            'courses[0][shortname]': course_code,
-            'courses[0][fullname]': course_name,
-            'courses[0][categoryid]': category_id
-        }
-        result = moodle_api_call('core_course_update_courses', params, moodle_url, token)
-        if result:
-            st.success(f"Đã cập nhật khóa học: {course_name} (ID: {course_id})")
-            return course_id
-    else:
-        params = {
-            'courses[0][shortname]': course_code,
-            'courses[0][fullname]': course_name,
-            'courses[0][categoryid]': category_id
-        }
-        result = moodle_api_call('core_course_create_courses', params, moodle_url, token)
-        if result and 'courses' in result:
-            course_id = result['courses'][0]['id']
-            st.success(f"Đã tạo khóa học mới: {course_name} (ID: {course_id})")
-            return course_id
-    return None
-
-def create_user(user, moodle_url, token):
-    params = {'criteria[0][key]': 'username', 'criteria[0][value]': user['username']}
-    existing_user = moodle_api_call('core_user_get_users', params, moodle_url, token)
-    
-    if existing_user and 'users' in existing_user and existing_user['users']:
-        return existing_user['users'][0]['id']
-    else:
-        params = {
-            'users[0][username]': user['username'],
-            'users[0][password]': user['password'],
-            'users[0][firstname]': user['firstname'],
-            'users[0][lastname]': user['lastname'],
-            'users[0][email]': user['email']
-        }
-        result = moodle_api_call('core_user_create_users', params, moodle_url, token)
-        if result and 'users' in result:
-            st.success(f"Đã tạo người dùng: {user['username']}")
-            return result['users'][0]['id']
-        else:
-            st.error(f"Lỗi khi tạo người dùng: {user['username']}")
-            return None
-
-def enroll_users(users, course_id, role_id, moodle_url, token, batch_size=50):
-    success_count = 0
-    for i in range(0, len(users), batch_size):
-        batch = users[i:i + batch_size]
-        params = {}
-        for j, user in enumerate(batch):
-            user_id = create_user(user, moodle_url, token)
-            if user_id:
-                params[f'enrolments[{j}][roleid]'] = role_id
-                params[f'enrolments[{j}][userid]'] = user_id
-                params[f'enrolments[{j}][courseid]'] = course_id
-        if params:
-            result = moodle_api_call('enrol_manual_enrol_users', params, moodle_url, token)
-            if result is None:
-                success_count += len(params) // 3
-                st.success(f"Đã ghi danh {len(params) // 3} người dùng trong batch.")
-            else:
-                st.error("Lỗi khi ghi danh batch người dùng.")
-        time.sleep(0.5)
-    return success_count
-
-def extract_course_info(df_full):
-    course_info_line = df_full.iloc[4, 4] if not pd.isna(df_full.iloc[4, 4]) else ""
-    class_line = df_full.iloc[5, 1] if not pd.isna(df_full.iloc[5, 1]) else ""
-    course_code_match = re.search(r'\[(.*?)\]', course_info_line)
-    course_code = course_code_match.group(1) if course_code_match else ''
-    class_match = re.search(r'Lớp:\s*(.*)', class_line)
-    class_name = class_match.group(1).strip() if class_match else ''
-    return f"{course_code}_{class_name}", course_info_line.split(":")[-1].strip()
-
-def filter_valid_students(df):
-    df['MSSV'] = df['MSSV'].astype(str)
-    return df[df['MSSV'].str.fullmatch(r'\d{8,}')].copy()
-
-def split_name(full_name):
-    parts = full_name.strip().split()
-    return (' '.join(parts[:-1]), parts[-1]) if len(parts) > 1 else ('', parts[0])
-
+# Hàm xử lý Excel đã sửa
 def process_excel(uploaded_file):
+    if not check_file_format(uploaded_file):
+        st.error("File không phải định dạng Excel hợp lệ (.xlsx hoặc .xls). Vui lòng kiểm tra và tải lại file.")
+        return [], "", ""
+    
     try:
-        df_full = pd.read_excel(uploaded_file, sheet_name=0, header=None, engine='openpyxl')
+        # Thử đọc với openpyxl trước
+        try:
+            df_full = pd.read_excel(uploaded_file, sheet_name=0, header=None, engine='openpyxl')
+        except Exception as e_openpyxl:
+            # Nếu openpyxl thất bại, thử xlrd cho .xls
+            try:
+                uploaded_file.seek(0)  # Đặt lại con trỏ file
+                df_full = pd.read_excel(uploaded_file, sheet_name=0, header=None, engine='xlrd')
+            except Exception as e_xlrd:
+                st.error(f"Không thể đọc file Excel: {str(e_openpyxl)} (openpyxl) hoặc {str(e_xlrd)} (xlrd). Vui lòng kiểm tra file.")
+                return [], "", ""
+
         if df_full.size > 1_000_000:
             st.error("File Excel quá lớn, vui lòng giảm số lượng dữ liệu.")
             return [], "", ""
+
         course_identifier, course_fullname_base = extract_course_info(df_full)
-        df_raw = pd.read_excel(uploaded_file, header=None, skiprows=13, engine='openpyxl')
+        if not course_identifier:
+            st.error("Không tìm thấy thông tin khóa học hợp lệ trong file. Kiểm tra ô [4,4] và [5,1].")
+            return [], "", ""
+
+        # Thử đọc dữ liệu sinh viên
+        try:
+            df_raw = pd.read_excel(uploaded_file, header=None, skiprows=13, engine='openpyxl')
+        except Exception:
+            uploaded_file.seek(0)
+            df_raw = pd.read_excel(uploaded_file, header=None, skiprows=13, engine='xlrd')
 
         cols = ['STT', 'MSSV', 'Ho', 'Ten', 'GioiTinh', 'NgaySinh', 'Lop'] + [f'col{i}' for i in range(7, df_raw.shape[1])]
         df_raw.columns = cols[:df_raw.shape[1]]
 
         df_valid = filter_valid_students(df_raw[['MSSV', 'Ho', 'Ten', 'NgaySinh']].copy())
+        if df_valid.empty:
+            st.error("Không tìm thấy sinh viên hợp lệ trong file (MSSV phải có ít nhất 8 chữ số).")
+            return [], "", ""
+
         df_valid['Email'] = df_valid['MSSV'].astype(str) + '@ntt.edu.vn'
 
         students = []
@@ -174,10 +106,10 @@ def process_excel(uploaded_file):
 
         return students, course_identifier, course_fullname_base
     except Exception as e:
-        st.error(f"Lỗi khi xử lý file Excel: {e}")
+        st.error(f"Lỗi khi xử lý file Excel: {str(e)}. Vui lòng kiểm tra định dạng file và thử lại.")
         return [], "", ""
 
-# Giao diện Streamlit
+# Giao diện Streamlit (chỉ hiển thị tab Một File để ngắn gọn)
 tab1, tab2 = st.tabs(["📄 Một File", "📂 Nhiều File"])
 
 with tab1:
@@ -206,8 +138,8 @@ with tab1:
                 try:
                     students, course_code, course_name = process_excel(uploaded_file)
                     if not students:
-                        st.error("Không tìm thấy sinh viên hợp lệ trong file.")
-                        st.stop()  # Dừng thực thi thay vì return
+                        st.error("Không có dữ liệu hợp lệ để xử lý.")
+                        st.stop()
                     
                     course_id = create_or_update_course(course_code, f"{course_name}_GV: {fullname_gv}", 
                                                       category_id, moodle_url, moodle_token)
@@ -249,8 +181,9 @@ with tab1:
                         mime="text/csv"
                     )
                 except Exception as e:
-                    st.error(f"Lỗi xử lý: {e}")
+                    st.error(f"Lỗi xử lý: {str(e)}")
 
+# Tab Nhiều File (giữ tương tự, chỉ cập nhật gọi process_excel)
 with tab2:
     st.header("📂 Xử lý Nhiều File Excel")
     moodle_url_multi = st.text_input("🌐 URL Moodle (Nhiều File):")
@@ -312,7 +245,7 @@ with tab2:
 
                         progress_bar.progress((i + 1) / total_files)
                     except Exception as e:
-                        st.error(f"Lỗi khi xử lý file {file.name}: {e}")
+                        st.error(f"Lỗi khi xử lý file {file.name}: {str(e)}")
 
                 if all_user_records:
                     df_users_all = pd.DataFrame(all_user_records)
