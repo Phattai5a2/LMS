@@ -45,16 +45,33 @@ def process_excel(uploaded_file):
     df_full = pd.read_excel(uploaded_file, sheet_name=0, header=None, engine='xlrd')
     course_identifier, course_fullname_base = extract_course_info(df_full)
     df_raw = pd.read_excel(uploaded_file, header=None, skiprows=13, engine='xlrd')
+
     cols = ['STT', 'MSSV', 'Ho', 'Ten', 'GioiTinh', 'NgaySinh', 'Lop'] + [f'col{i}' for i in range(7, df_raw.shape[1])]
     df_raw.columns = cols[:df_raw.shape[1]]
-    df_valid = filter_valid_students(df_raw[['MSSV', 'Ho', 'Ten']].copy())
+
+    df_valid = filter_valid_students(df_raw[['MSSV', 'Ho', 'Ten', 'NgaySinh']].copy())
     df_valid['Email'] = df_valid['MSSV'].astype(str) + '@ntt.edu.vn'
+
     students = []
     for _, row in df_valid.iterrows():
         ho_lot, ten = split_name(row['Ho'] + " " + row['Ten'])
-        students.append({'username': row['MSSV'], 'password': row['MSSV'],
-                         'firstname': ho_lot, 'lastname': ten,
-                         'email': row['Email'], 'course1': course_identifier})
+        try:
+            dob = pd.to_datetime(row['NgaySinh'], errors='coerce')
+            dob_str = dob.strftime('%d%m%Y') if not pd.isna(dob) else '01011990'
+        except:
+            dob_str = '01011990'
+
+        password = f"Kcntt@{dob_str}"
+
+        students.append({
+            'username': row['MSSV'],
+            'password': password,
+            'firstname': ho_lot,
+            'lastname': ten,
+            'email': row['Email'],
+            'course1': course_identifier
+        })
+
     return students, course_identifier, course_fullname_base
 
 tab1, tab2 = st.tabs(["📄 Một File", "📂 Nhiều File"])
@@ -88,7 +105,7 @@ with tab2:
     uploaded_files = st.file_uploader("Chọn nhiều file Excel", type=["xls", "xlsx"], accept_multiple_files=True)
     username_gv_multi = st.text_input("👨‍🏫 Username Giảng Viên cho Tất Cả:")
     fullname_gv_multi = st.text_input("👨‍🏫 Họ và Tên Giảng Viên cho Tất Cả:")
-    category_id_multi = st.text_input("📂 Category ID cho Tất Cả:", value="14")
+    category_id_multi = st.text_input("📂 Category ID cho Tất Cả:", value="15")
 
     if uploaded_files and st.button("🚀 Xử lý Nhiều File"):
         all_user_records, all_course_records = [], []
