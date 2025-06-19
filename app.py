@@ -84,12 +84,12 @@ with tab1:
     fullname_gv = st.text_input("👨‍🏫 Họ và Tên Giảng Viên:")
     category_id = st.text_input("📂 Category ID:", value="16")
 
-    if uploaded_file and st.button("🚀 Tích Hợp"):
+    if uploaded_file and st.button("🚀 Xử lý Một File"):
         students, course_code, course_name = process_excel(uploaded_file)
         gv_ho_lot, gv_ten = split_name(fullname_gv)
         all_users = [{'username': username_gv, 'password': 'Kcntt@2xxx',
                       'firstname': gv_ho_lot, 'lastname': gv_ten,
-                      'email': f"{username_gv}@ntt.edu.vn", 'course1': course_code, 'role1': 'teacher'}] + students
+                      'email': f"{username_gv}@ntt.edu.vn", 'course1': course_code, 'role1': 'editingteacher'}] + students
         df_users = pd.DataFrame(all_users)
         df_course = pd.DataFrame([{'shortname': course_code,
                                    'fullname': f"{course_name}_GV: {fullname_gv}",
@@ -108,7 +108,7 @@ with tab2:
     fullname_gv_multi = st.text_input("👨‍🏫 Họ và Tên Giảng Viên cho Tất Cả:")
     category_id_multi = st.text_input("📂 Category ID cho Tất Cả:", value="16")
 
-    if uploaded_files and st.button("🚀 Xử lý"):
+    if uploaded_files and st.button("🚀 Xử lý Nhiều File"):
         all_user_records, all_course_records = [], []
         gv_ho_lot_multi, gv_ten_multi = split_name(fullname_gv_multi)
 
@@ -116,7 +116,7 @@ with tab2:
             students, course_code, course_name = process_excel(file)
             all_user_records.append({'username': username_gv_multi, 'password': 'Kcntt@2xxx',
                                      'firstname': gv_ho_lot_multi, 'lastname': gv_ten_multi,
-                                     'email': f"{username_gv_multi}@ntt.edu.vn", 'course1': course_code, 'role1': 'teacher'})
+                                     'email': f"{username_gv_multi}@ntt.edu.vn", 'course1': course_code, 'role1': 'editingteacher'})
             all_user_records.extend(students)
             all_course_records.append({'shortname': course_code,
                                        'fullname': f"{course_name}_GV: {fullname_gv_multi}",
